@@ -332,6 +332,11 @@ Organizing Committee`,
           }
 
           setDeliveryResults([...results]);
+
+          // Safe pacing delay (800ms) between sends to prevent triggering Gmail velocity spam filters
+          if (i < emailItems.length - 1) {
+            await new Promise(r => setTimeout(r, 800));
+          }
         }
 
         const sentCount = results.filter(r => r.status === 'success').length;

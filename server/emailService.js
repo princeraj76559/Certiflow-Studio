@@ -61,26 +61,48 @@ export function interpolateTemplate(template, rowData = {}) {
 }
 
 /**
- * Sends a single email with optional attachment
+ * Sends a single email with optional attachment and anti-spam deliverability headers
  */
 export async function sendSingleEmail(transporter, { from, to, subject, htmlBody, attachment }) {
-  const rawContent = htmlBody || 'Please find your certificate attached.';
+  const senderEmail = from.trim();
+  const recipientEmail = to.trim();
+  const rawContent = htmlBody || 'Please find your official certificate attached.';
   
-  // Convert newlines to <br/> if not already handled, and wrap in clean typography
+  // Clean plain text version (vital for spam filter scoring)
+  const plainText = rawContent
+    .replace(/<br\s*[\/]?>/gi, '\n')
+    .replace(/<[^>]*>/g, '')
+    .trim();
+
+  // Clean HTML wrapper
   const formattedHtml = `
-    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 15px; line-height: 1.6; color: #1f2937;">
-      ${rawContent.replace(/\r\n/g, '<br/>').replace(/\n/g, '<br/>')}
-    </div>
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="margin: 0; padding: 20px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 15px; line-height: 1.6; color: #1f2937; background-color: #ffffff;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 0 15px;">
+          ${rawContent.replace(/\r\n/g, '<br/>').replace(/\n/g, '<br/>')}
+        </div>
+      </body>
+    </html>
   `;
 
-  const plainText = rawContent.replace(/<[^>]*>/g, '');
-
   const mailOptions = {
-    from: `"Certificate Automation" <${from}>`,
-    to: to.trim(),
-    subject: subject || 'Your Certificate of Achievement',
+    from: `"Event Organizing Committee" <${senderEmail}>`,
+    to: recipientEmail,
+    replyTo: senderEmail,
+    subject: (subject || 'Your Certificate of Achievement').trim(),
     text: plainText,
     html: formattedHtml,
+    headers: {
+      'X-Priority': '3',
+      'X-MSMail-Priority': 'Normal',
+      'Importance': 'Normal',
+      'X-Mailer': 'CertiFlow Official Dispatcher',
+    },
     attachments: [],
   };
 
@@ -90,7 +112,7 @@ export async function sendSingleEmail(transporter, { from, to, subject, htmlBody
       content: attachment.content.includes('base64,') 
         ? Buffer.from(attachment.content.split('base64,')[1], 'base64')
         : Buffer.from(attachment.content, 'base64'),
-      contentType: attachment.contentType || 'application/pdf',
+      contentType: 'application/pdf',
     });
   }
 
