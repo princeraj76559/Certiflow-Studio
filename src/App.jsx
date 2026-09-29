@@ -259,36 +259,84 @@ Organizing Committee`,
           addLog(`Saved ${savedCount} unique certificate PDF(s) to ZIP archive (${skippedDuplicates} duplicates combined).`, 'success');
         }
 
-        // Send via Backend SMTP
+        // Send via SMTP
         addLog(`Connecting to ${smtpConfig.provider.toUpperCase()} SMTP server at ${smtpConfig.host}...`);
 
-        const response = await fetch('/api/email/batch-send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            smtpConfig,
-            emailTemplate,
-            items: emailItems,
-            delayMs: 600,
-          }),
-        });
-
-        const dispatchResponse = await response.json();
-
-        if (response.ok && dispatchResponse.success) {
-          setDeliveryResults(dispatchResponse.results);
-          dispatchResponse.results.forEach(r => {
-            if (r.status === 'success') {
-              addLog(`Dispatched email to ${r.name} (${r.email})`, 'success');
-            } else {
-              addLog(`Failed to email ${r.name} (${r.email}): ${r.error}`, 'error');
-            }
+        const results = [];
+        for (let i = 0; i < emailItems.length; i++) {
+          const item = emailItems[i];
+          setBatchProgress({
+            currentIndex: i + 1,
+            totalItems: emailItems.length,
+            currentName: `Sending email to ${item.name} (${item.email})...`,
+            isComplete: false,
           });
-          addLog(`Batch completed: ${dispatchResponse.sentCount} sent, ${dispatchResponse.failedCount} failed.`, 'success');
-        } else {
-          throw new Error(dispatchResponse.error || 'Batch email dispatch failed.');
+
+          if (!item.email || !item.email.includes('@')) {
+            results.push({
+              index: i,
+              name: item.name,
+              email: item.email || 'Missing Email',
+              status: 'failed',
+              error: 'Invalid or missing email address',
+              timestamp: new Date().toISOString(),
+            });
+            addLog(`Skipped ${item.name}: Missing or invalid email`, 'error');
+            setDeliveryResults([...results]);
+            continue;
+          }
+
+          try {
+            const sendRes = await fetch('/api/send-email', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                smtpConfig,
+                emailTemplate,
+                recipient: item,
+              }),
+            });
+            const sendData = await sendRes.json();
+            if (sendRes.ok && sendData.success) {
+              results.push({
+                index: i,
+                name: item.name,
+                email: item.email,
+                status: 'success',
+                messageId: sendData.messageId,
+                filename: `${item.name}_Certificate.pdf`,
+                timestamp: new Date().toISOString(),
+              });
+              addLog(`Dispatched email to ${item.name} (${item.email})`, 'success');
+            } else {
+              results.push({
+                index: i,
+                name: item.name,
+                email: item.email,
+                status: 'failed',
+                error: sendData.error || sendData.message || 'SMTP Send Failed',
+                timestamp: new Date().toISOString(),
+              });
+              addLog(`Failed to email ${item.name} (${item.email}): ${sendData.error || sendData.message || 'Send Failed'}`, 'error');
+            }
+          } catch (err) {
+            results.push({
+              index: i,
+              name: item.name,
+              email: item.email,
+              status: 'failed',
+              error: err.message,
+              timestamp: new Date().toISOString(),
+            });
+            addLog(`Error emailing ${item.name}: ${err.message}`, 'error');
+          }
+
+          setDeliveryResults([...results]);
         }
 
+        const sentCount = results.filter(r => r.status === 'success').length;
+        const failedCount = results.filter(r => r.status === 'failed').length;
+        addLog(`Batch completed: ${sentCount} sent, ${failedCount} failed.`, 'success');
         setBatchProgress(prev => ({ ...prev, isComplete: true, currentIndex: rows.length }));
       }
     } catch (err) {

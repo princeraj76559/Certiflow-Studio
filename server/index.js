@@ -23,7 +23,7 @@ app.get('/api/smtp/presets', (req, res) => {
 });
 
 // Test/Verify SMTP Connection
-app.post('/api/smtp/verify', async (req, res) => {
+app.post(['/api/smtp/verify', '/api/smtp-verify'], async (req, res) => {
   const { host, port, secure, user, pass } = req.body;
   const result = await verifySmtpConnection({ host, port, secure, user, pass });
   if (result.success) {
@@ -33,20 +33,34 @@ app.post('/api/smtp/verify', async (req, res) => {
   }
 });
 
-// Send a single test email
-app.post('/api/email/test-send', async (req, res) => {
-  const { smtpConfig, toEmail, subject, htmlBody } = req.body;
+// Send a single email (for sequential batching & testing)
+app.post(['/api/email/test-send', '/api/send-email', '/api/email/send'], async (req, res) => {
+  const { smtpConfig, emailTemplate, recipient, toEmail, subject, htmlBody } = req.body;
   try {
     const transporter = createTransporter(smtpConfig);
+    const targetEmail = recipient?.email || toEmail || smtpConfig.user;
+    const targetName = recipient?.name || 'Participant';
+    const personalizedSubject = recipient && emailTemplate 
+      ? interpolateTemplate(emailTemplate.subject || subject || 'Certificate of Achievement', recipient)
+      : (subject || 'Test Certificate Dispatch Connection');
+    const personalizedBody = recipient && emailTemplate
+      ? interpolateTemplate(emailTemplate.body || htmlBody || '<p>Please find your certificate attached.</p>', recipient)
+      : (htmlBody || '<p>This is a test email from CertiFlow. Your SMTP setup is operational!</p>');
+
     const info = await sendSingleEmail(transporter, {
       from: smtpConfig.user,
-      to: toEmail || smtpConfig.user,
-      subject: subject || 'Test Certificate Dispatch Connection',
-      htmlBody: htmlBody || '<p>This is a test email from CertiFlow. Your SMTP setup is operational!</p>',
+      to: targetEmail,
+      subject: personalizedSubject,
+      htmlBody: personalizedBody,
+      attachment: recipient?.pdfBase64 ? {
+        filename: `${targetName.replace(/[^a-zA-Z0-9_\-]/g, '_')}_Certificate.pdf`,
+        content: recipient.pdfBase64,
+        contentType: 'application/pdf',
+      } : null,
     });
-    res.json({ success: true, message: 'Test email sent successfully!', messageId: info.messageId });
+    res.json({ success: true, message: 'Email sent successfully!', messageId: info.messageId, name: targetName, email: targetEmail });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, error: error.message, message: error.message });
   }
 });
 

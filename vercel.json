@@ -1,0 +1,41 @@
+{
+  "version": 2,
+  "rewrites": [
+    {
+      "source": "/api/smtp/verify",
+      "destination": "/api/smtp-verify"
+    },
+    {
+      "source": "/api/smtp-verify",
+      "destination": "/api/smtp-verify"
+    },
+    {
+      "source": "/api/email/batch-send",
+      "destination": "/api/batch-send"
+    },
+    {
+      "source": "/api/batch-send",
+      "destination": "/api/batch-send"
+    },
+    {
+      "source": "/api/send-email",
+      "destination": "/api/send-email"
+    },
+    {
+      "source": "/api/email/send",
+      "destination": "/api/send-email"
+    },
+    {
+      "source": "/api/report/export-excel",
+      "destination": "/api/export-report"
+    },
+    {
+      "source": "/api/export-report",
+      "destination": "/api/export-report"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
