@@ -9,7 +9,9 @@ import { validateExcelData } from './utils/excelParser';
 import { 
   generateConsolidatedMultiPagePdf, 
   generateSingleCertificatePdf, 
-  exportIndividualPdfsToZip 
+  exportIndividualPdfsToZip,
+  loadImage,
+  ensureFontLoaded
 } from './utils/pdfGenerator';
 import { saveAs } from 'file-saver';
 
@@ -59,10 +61,14 @@ export default function App() {
 
   const [emailTemplate, setEmailTemplate] = useState({
     subject: 'Certificate of Achievement — {event}',
-    body: `<p>Dear <strong>{name}</strong>,</p>
-<p>Congratulations on your participation and achievement in the <strong>{event}</strong>!</p>
-<p>Please find your official certificate attached to this email.</p>
-<p>Warm regards,<br/><strong>Organizing Committee</strong></p>`,
+    body: `Dear {name},
+
+Congratulations on your participation and achievement in the {event}!
+
+Please find your official certificate attached to this email.
+
+Warm regards,
+Organizing Committee`,
   });
 
   const [exportIndividualZip, setExportIndividualZip] = useState(true);
@@ -202,6 +208,14 @@ export default function App() {
         addLog('Rendering individual certificates for email dispatch...');
         const emailItems = [];
 
+        // Preload base image & fonts once for high performance
+        const preloadedImg = await loadImage(baseImage);
+        for (const field of textFields) {
+          if (field.fontFamily) {
+            await ensureFontLoaded(field.fontFamily, field.fontSize || 48, field.fontWeight || 'normal');
+          }
+        }
+
         for (let i = 0; i < rows.length; i++) {
           const row = rows[i];
           const name = row[columnMapping.name] || `Participant ${i + 1}`;
@@ -214,9 +228,9 @@ export default function App() {
             isComplete: false,
           });
 
-          const { canvas } = await generateSingleCertificatePdf(baseImage, textFields, row);
-          // Use high quality PNG dataURL for attachment
-          const pdfBase64 = canvas.toDataURL('image/png');
+          // Generate actual PDF document
+          const { pdf } = await generateSingleCertificatePdf(baseImage, textFields, row, preloadedImg);
+          const pdfBase64 = pdf.output('datauristring');
 
           emailItems.push({
             ...row,
@@ -225,7 +239,7 @@ export default function App() {
             pdfBase64,
           });
 
-          addLog(`Rendered certificate for ${name}`, 'info');
+          addLog(`Rendered PDF certificate for ${name}`, 'info');
         }
 
         // Optional ZIP export

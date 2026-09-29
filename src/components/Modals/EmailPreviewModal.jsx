@@ -28,7 +28,7 @@ export default function EmailPreviewModal({
   };
 
   const renderedSubject = interpolate(template.subject || 'Your Certificate of Achievement');
-  const renderedBody = interpolate(template.body || '<p>Dear {name}, thank you for your participation!</p>');
+  const renderedBody = interpolate(template.body || 'Dear {name},\n\nPlease find your certificate attached.');
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">

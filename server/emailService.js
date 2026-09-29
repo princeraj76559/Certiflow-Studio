@@ -64,11 +64,23 @@ export function interpolateTemplate(template, rowData = {}) {
  * Sends a single email with optional attachment
  */
 export async function sendSingleEmail(transporter, { from, to, subject, htmlBody, attachment }) {
+  const rawContent = htmlBody || 'Please find your certificate attached.';
+  
+  // Convert newlines to <br/> if not already handled, and wrap in clean typography
+  const formattedHtml = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 15px; line-height: 1.6; color: #1f2937;">
+      ${rawContent.replace(/\r\n/g, '<br/>').replace(/\n/g, '<br/>')}
+    </div>
+  `;
+
+  const plainText = rawContent.replace(/<[^>]*>/g, '');
+
   const mailOptions = {
     from: `"Certificate Automation" <${from}>`,
     to: to.trim(),
     subject: subject || 'Your Certificate of Achievement',
-    html: htmlBody || '<p>Please find your certificate attached.</p>',
+    text: plainText,
+    html: formattedHtml,
     attachments: [],
   };
 

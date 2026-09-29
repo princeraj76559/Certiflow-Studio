@@ -286,7 +286,7 @@ export default function Step4_ModeConfig({
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="text-[11px] font-semibold text-slate-700">Message Body (HTML supported)</label>
+                <label className="text-[11px] font-semibold text-slate-700">Message Body</label>
                 <div className="flex gap-1">
                   {['{name}', '{event}', '{date}', '{role}'].map(tag => (
                     <button
@@ -303,10 +303,11 @@ export default function Step4_ModeConfig({
                 </div>
               </div>
               <textarea
-                rows={4}
+                rows={5}
                 value={emailTemplate.body}
                 onChange={(e) => setEmailTemplate({ ...emailTemplate, body: e.target.value })}
-                className="w-full theme-input p-2.5 text-xs text-slate-900 font-sans leading-relaxed"
+                placeholder={`Dear {name},\n\nPlease find your certificate attached.\n\nWarm regards,\nOrganizing Committee`}
+                className="w-full theme-input p-2.5 text-xs text-slate-900 font-sans leading-relaxed whitespace-pre-wrap"
               />
             </div>
           </div>
